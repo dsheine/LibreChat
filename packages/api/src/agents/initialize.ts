@@ -35,6 +35,7 @@ import type {
   TFilterFilesByAgentAccess,
   TProvisionToCodeEnv,
   TProvisionToVectorDB,
+  TCheckSessionsAlive,
 } from './resources';
 import {
   injectSkillCatalog,
@@ -344,6 +345,8 @@ export type InitializedAgent = Agent & {
    * context limits with the same numbers the UI shows — not default rates.
    */
   endpointTokenConfig?: EndpointTokenConfig;
+  /** Warnings from lazy file provisioning (e.g., failed uploads) */
+  provisionWarnings?: string[];
 };
 
 export const DEFAULT_MAX_CONTEXT_TOKENS = 32000;
@@ -571,6 +574,8 @@ export interface InitializeAgentDbMethods extends EndpointDbMethods {
   provisionToCodeEnv?: TProvisionToCodeEnv;
   /** Optional: provision a file to the vector DB for file_search */
   provisionToVectorDB?: TProvisionToVectorDB;
+  /** Optional: batch-check code env file liveness */
+  checkSessionsAlive?: TCheckSessionsAlive;
 }
 
 /**
@@ -772,6 +777,7 @@ export async function initializeAgent(
     requestAttachments: primedRequestAttachments,
     agentContextAttachments: primedAgentContextAttachments,
     tool_resources,
+    warnings: provisionWarnings,
   } = await primeResources({
     req: req as never,
     getFiles: db.getFiles as never,
@@ -786,6 +792,7 @@ export async function initializeAgent(
     enabledToolResources: toolResourceSet,
     provisionToCodeEnv: db.provisionToCodeEnv,
     provisionToVectorDB: db.provisionToVectorDB,
+    checkSessionsAlive: db.checkSessionsAlive,
   });
 
   /**
@@ -1344,6 +1351,7 @@ export async function initializeAgent(
     useLegacyContent: !!options.useLegacyContent,
     tools: (tools ?? []) as GenericTool[] & string[],
     maxToolResultChars: maxToolResultCharsResolved,
+    provisionWarnings: provisionWarnings.length > 0 ? provisionWarnings : undefined,
     maxContextTokens:
       maxContextTokens != null && maxContextTokens > 0
         ? maxContextTokens
